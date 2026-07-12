@@ -9,15 +9,21 @@ from bs4 import BeautifulSoup
 from groq import Groq
 import re
 import json
+from supabase import create_client # 추가됨
 
 st.set_page_config(page_title="육과장 AI 풀오토 v10", layout="wide", initial_sidebar_state="collapsed")
+
+# Supabase 연결 - 추가됨
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # 1. 글로벌 CSS - UI 깔끔하게
 st.markdown("""
 <style>
-   .main.block-container {padding-top: 1rem; padding-bottom: 0rem;}
-   .stMetric {background-color: #0E1117; padding: 15px; border-radius: 10px; border: 1px solid #262730;}
-   .stAlert {border-radius: 10px;}
+  .main.block-container {padding-top: 1rem; padding-bottom: 0rem;}
+  .stMetric {background-color: #0E1117; padding: 15px; border-radius: 10px; border: 1px solid #262730;}
+  .stAlert {border-radius: 10px;}
     h1 {text-align: center; color: #FAFAFA;}
     h3 {color: #FAFAFA; border-bottom: 2px solid #FF4B4B; padding-bottom: 5px;}
 </style>
@@ -44,7 +50,29 @@ if 'groq_key' not in st.session_state: st.session_state.groq_key = ""
 if 'account_type' not in st.session_state: st.session_state.account_type = "ISA"
 if 'krx_list' not in st.session_state: st.session_state.krx_list = None
 
-# 4. 한국거래소 전종목 리스트 캐싱 - 1일 1회
+# 4. Supabase DB 함수로 교체 - 추가됨
+def load_users():
+    try:
+        res = supabase.table('users').select("*").execute()
+        users = {}
+        for user in res.data:
+            users[user['email']] = {
+                'password': user['password'],
+                'data': user['data'] if user['data'] else {}
+            }
+        return users
+    except:
+        return {}
+
+def save_users(users):
+    for email, user_data in users.items():
+        supabase.table('users').upsert({
+            'email': email,
+            'password': user_data['password'],
+            'data': user_data['data']
+        }).execute()
+
+# 5. 한국거래소 전종목 리스트 캐싱 - 1일 1회
 @st.cache_data(ttl=86400)
 def get_krx_list():
     try:
@@ -71,13 +99,13 @@ if st.session_state.krx_list is None:
     with st.spinner("한국거래소 전종목 로딩중..."):
         st.session_state.krx_list = get_krx_list()
 
-# 5. 상단 설정 - 팝오버로 숨김
-with st.popover("⚙️ 설정", use_container_width=True):
+# 6. 상단 설정 - 팝오버로 숨김
+with st.popover("⚙ 설정", use_container_width=True):
     st.session_state.groq_key = st.text_input("Groq API", type="password", value=st.session_state.groq_key)
     st.session_state.account_type = st.selectbox("계좌", ["IRP", "ISA", "연금저축", "일반계좌"],
                                                 index=["IRP", "ISA", "연금저축", "일반계좌"].index(st.session_state.account_type))
 
-# 6. 종목 추가 - 검색 가능
+# 7. 종목 추가 - 검색 가능
 st.subheader("💰 보유종목 관리")
 col1, col2, col3 = st.columns([3,1])
 search_name = col1.selectbox("종목 검색", options=list(st.session_state.krx_list.keys()), index=None, placeholder="삼성전자, TIGER 등 검색")
@@ -91,14 +119,14 @@ if col3.button("추가/수정", use_container_width=True, type="primary"):
             del st.session_state.portfolio[ticker]
         st.rerun()
 
-# 7. 무한피드백 엔진 v2 - 3분마다
+# 8. 무한피드백 엔진 v2 - 3분마다
 @st.cache_data(ttl=180)
 def infinite_feedback_v2(groq_key, current_rules, portfolio_tickers):
     logs = []
     new_rules = current_rules.copy()
 
     try:
-        # 7-1. 멀티소스 크롤링
+        # 8-1. 멀티소스 크롤링
         sources = []
         # 네이버뉴스
         soup = BeautifulSoup(requests.get("https://finance.naver.com/news/mainnews.naver", timeout=2).text, 'lxml')
@@ -109,7 +137,7 @@ def infinite_feedback_v2(groq_key, current_rules, portfolio_tickers):
 
         full_text = " ".join(sources)
 
-        # 7-2. 위험 시그널 감지
+        # 8-2. 위험 시그널 감지
         risks = {
             '커버드콜': len(re.findall(r'커버드콜.*위험|분배금.*삭감', full_text)),
             '금리': len(re.findall(r'금리.*인상|긴축|매파', full_text)),
@@ -117,7 +145,7 @@ def infinite_feedback_v2(groq_key, current_rules, portfolio_tickers):
             '개별종목': len(re.findall(r'횡령|감사의견.*거절|상장폐지', full_text))
         }
 
-        # 7-3. 룰 자동 하드코딩 수정
+        # 8-3. 룰 자동 하드코딩 수정
         if risks['커버드콜'] >= 2:
             new_rules['cov_max'] = 0.0 # 전량매도
             logs.append(f"[{datetime.now().strftime('%H:%M')}] 🔴 긴급: 커버드콜 위험 {risks['커버드콜']}건. 비중 0% 강제청산")
@@ -131,7 +159,7 @@ def infinite_feedback_v2(groq_key, current_rules, portfolio_tickers):
             new_rules['irp_risky_max'] = 0.5
             logs.append(f"[{datetime.now().strftime('%H:%M')}] 🔴 긴급: 침체경고. IRP 위험자산 50% 제한")
 
-        # 7-4. Groq로 개별종목 리스크 스캔
+        # 8-4. Groq로 개별종목 리스크 스캔
         if groq_key and portfolio_tickers:
             client = Groq(api_key=groq_key)
             ticker_names = [k for k in portfolio_tickers]
@@ -151,13 +179,13 @@ def infinite_feedback_v2(groq_key, current_rules, portfolio_tickers):
     return new_rules, logs
 
 if is_market_open and st.session_state.groq_key:
-    new_rules, new_logs = infinite_feedback_v2(st.session_state.groq_key, st.session_state.rules)
+    new_rules, new_logs = infinite_feedback_v2(st.session_state.groq_key, st.session_state.rules, st.session_state.portfolio)
     if new_rules!= st.session_state.rules:
         st.session_state.rules = new_rules
     st.session_state.ai_logs.extend(new_logs)
     st.session_state.ai_logs = st.session_state.ai_logs[-50:]
 
-# 8. 실시간 포트폴리오 계산
+# 9. 실시간 포트폴리오 계산
 @st.cache_data(ttl=30)
 def calc_portfolio(portfolio_dict, rules, acc_type):
     if not portfolio_dict: return {}, 0, [], [], {}
@@ -179,7 +207,7 @@ def calc_portfolio(portfolio_dict, rules, acc_type):
         except:
             holdings[ticker] = {'name': ticker, 'shares': shares, 'price': 0, 'value': 0, 'change_pct': 0, 'div': 0}
 
-    # 8-1. 자동 진단 + 주문서
+    # 9-1. 자동 진단 + 주문서
     issues, orders = [], []
     if total == 0: return holdings, 0, ["종목 추가하세요"], [], {}
 
@@ -226,7 +254,7 @@ holdings, total, issues, orders, current_rules = calc_portfolio(
     st.session_state.portfolio, st.session_state.rules, st.session_state.account_type
 )
 
-# 9. 대시보드 UI - 카드형
+# 10. 대시보드 UI - 카드형
 if total > 0:
     prev_total = sum(st.session_state.portfolio[t] * yf.Ticker(t).history(period="2d")['Close'].iloc[-2]
                      for t in st.session_state.portfolio if st.session_state.portfolio[t] > 0)
@@ -246,7 +274,7 @@ if total > 0:
         else: st.error(issue)
 
     if orders:
-        st.markdown("### ⚖️ 자동 리밸런싱 주문서")
+        st.markdown("### ⚖ 자동 리밸런싱 주문서")
         df = pd.DataFrame([{
             '종목': o['name'], '구분': o['action'], '수량': f"{o['shares']}주",
             '금액': f"{o['shares'] * holdings[o['ticker']]['price']:,.0f}원"
@@ -271,8 +299,8 @@ if total > 0:
 else:
     st.info("👆 위에서 종목을 검색해서 추가하세요. AI가 자동으로 분석 시작합니다")
 
-# 10. 현재 룰 표시
-with st.expander("⚙️ AI가 실시간으로 수정중인 룰"):
+# 11. 현재 룰 표시
+with st.expander("⚙ AI가 실시간으로 수정중인 룰"):
     st.json({k: f"{v*100:.0f}%" for k, v in st.session_state.rules.items()})
 
 st.caption("v10 풀오토: 종목무제한 + 무한피드백 + 승인없이 자동실행. 개인자산증가 전용")
