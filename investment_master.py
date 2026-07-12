@@ -52,7 +52,7 @@ with tab1:
     st.markdown(f"<div class='metric-box'><h3>총 평가금액</h3><h1>{total_val:,.0f} 원</h1></div>", unsafe_allow_html=True)
     
     for t, q in st.session_state.portfolio.items():
-        name = [k for k,v in ETF_UNIVERSE.items() if v==t][0]
+        name = next((k for k, v in ETF_UNIVERSE.items() if v == t), t)
         st.write(f"**{name}** | {q}주 | 평가: {prices.get(t,0)*q:,.0f}원")
 
 # [리밸런싱 탭]
