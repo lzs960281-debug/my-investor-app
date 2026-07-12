@@ -16,24 +16,7 @@ st.set_page_config(page_title="육과장 AI 풀오토 v11", layout="wide", initi
 
 # Supabase 연결
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-
-# ========== 디버그 - 화면에 뜨는 값 보내주면 바로 해결해줌 ==========
-st.title("Supabase 키 디버깅")
-newline_check = '\n' in SUPABASE_KEY or '\r' in SUPABASE_KEY
-space_check = ' ' in SUPABASE_KEY or SUPABASE_KEY.startswith(' ') or SUPABASE_KEY.endswith(' ')
-slash_check = SUPABASE_URL.endswith('/')
-
-st.write(f"URL: {SUPABASE_URL}")
-st.write(f"KEY 길이: {len(SUPABASE_KEY)}")
-st.write(f"KEY 앞 30자: {SUPABASE_KEY[:30]}")
-st.write(f"KEY 뒤 30자: {SUPABASE_KEY[-30:]}")
-st.write(f"URL 끝에 / 있음?: {slash_check}")
-st.write(f"KEY에 줄바꿈 있음?: {newline_check}")
-st.write(f"KEY에 공백 있음?: {space_check}")
-st.stop()
-# ========== 디버그 끝 - 값 확인 후 이 블록 11줄 삭제하고 푸시 ==========
-
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"].strip()
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # 비밀번호 해시
@@ -93,7 +76,7 @@ st.markdown("""
 .main.block-container {padding-top: 1rem; padding-bottom: 0rem;}
 .stMetric {background-color: #0E1117; padding: 15px; border-radius: 10px; border: 1px solid #262730;}
 .stAlert {border-radius: 10px;}
-    h1 {text-align: center; color: #FAFAFA;}
+    h1 {text-align: center; color: #FAFA;}
     h3 {color: #FAFAFA; border-bottom: 2px solid #FF4B4B; padding-bottom: 5px;}
 </style>
 """, unsafe_allow_html=True)
