@@ -107,7 +107,7 @@ with st.popover("⚙ 설정", use_container_width=True):
 
 # 7. 종목 추가 - 검색 가능
 st.subheader("💰 보유종목 관리")
-col1, col2, col3 = st.columns([3,1])
+col1, col2, col3 = st.columns([3, 1, 1]) # 여기 수정
 search_name = col1.selectbox("종목 검색", options=list(st.session_state.krx_list.keys()), index=None, placeholder="삼성전자, TIGER 등 검색")
 add_shares = col2.number_input("수량", min_value=0, step=1)
 if col3.button("추가/수정", use_container_width=True, type="primary"):
