@@ -34,15 +34,21 @@ def load_users():
                 'data': user['data'] if user['data'] else {}
             }
         return users
-    except:
+    except Exception as e:
+        st.error(f"DB 연결 오류: {e}")
         return {}
 
 def save_user(email, password, data):
-    supabase.table('users').upsert({
-        'email': email,
-        'password': hash_password(password),
-        'data': data
-    }).execute()
+    try:
+        supabase.table('users').upsert({
+            'email': email,
+            'password': hash_password(password),
+            'data': data
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"회원가입 DB 오류: {e}")
+        return False
 
 def get_user_data(email):
     try:
@@ -54,7 +60,10 @@ def get_user_data(email):
         return {}
 
 def update_user_data(email, data):
-    supabase.table('users').update({'data': data}).eq('email', email).execute()
+    try:
+        supabase.table('users').update({'data': data}).eq('email', email).execute()
+    except Exception as e:
+        st.error(f"데이터 저장 오류: {e}")
 
 # 2. 글로벌 CSS
 st.markdown("""
@@ -85,20 +94,25 @@ if not st.session_state.logged_in:
         login_pw = st.text_input("비밀번호", type="password", key="login_pw")
         if st.button("로그인", type="primary", use_container_width=True):
             users = load_users()
-            if login_email in users and users[login_email]['password'] == hash_password(login_pw):
-                st.session_state.logged_in = True
-                st.session_state.user_email = login_email
-                # 유저 데이터 불러오기
-                user_data = get_user_data(login_email)
-                st.session_state.portfolio = user_data.get('portfolio', {})
-                st.session_state.rules = user_data.get('rules', {
-                    'core_min': 0.6, 'irp_risky_max': 0.7, 'cov_max': 0.15, 'single_stock_max': 0.2
-                })
-                st.session_state.groq_key = user_data.get('groq_key', "")
-                st.session_state.account_type = user_data.get('account_type', "ISA")
-                st.rerun()
+            input_hash = hash_password(login_pw)
+
+            if login_email in users:
+                db_hash = users[login_email]['password']
+                if db_hash == input_hash:
+                    st.session_state.logged_in = True
+                    st.session_state.user_email = login_email
+                    user_data = get_user_data(login_email)
+                    st.session_state.portfolio = user_data.get('portfolio', {})
+                    st.session_state.rules = user_data.get('rules', {
+                        'core_min': 0.6, 'irp_risky_max': 0.7, 'cov_max': 0.15, 'single_stock_max': 0.2
+                    })
+                    st.session_state.groq_key = user_data.get('groq_key', "")
+                    st.session_state.account_type = user_data.get('account_type', "ISA")
+                    st.rerun()
+                else:
+                    st.error(f"비밀번호 불일치. 입력: {input_hash[:10]}... / DB: {db_hash[:10]}...")
             else:
-                st.error("이메일 또는 비밀번호가 틀렸습니다")
+                st.error("존재하지 않는 이메일입니다")
 
     with tab2:
         st.subheader("회원가입")
@@ -107,17 +121,21 @@ if not st.session_state.logged_in:
         signup_pw2 = st.text_input("비밀번호 확인", type="password", key="signup_pw2")
         if st.button("회원가입", type="primary", use_container_width=True):
             if signup_pw!= signup_pw2:
-                st.error("비밀번호가 일치하지 않습니다") # ← 버그 수정됨
+                st.error("비밀번호가 일치하지 않습니다")
+            elif not signup_email or not signup_pw:
+                st.error("이메일과 비밀번호를 입력하세요")
             elif signup_email in load_users():
                 st.error("이미 가입된 이메일입니다")
             else:
-                save_user(signup_email, signup_pw, {
+                success = save_user(signup_email, signup_pw, {
                     'portfolio': {},
                     'rules': {'core_min': 0.6, 'irp_risky_max': 0.7, 'cov_max': 0.15, 'single_stock_max': 0.2},
                     'groq_key': "",
                     'account_type': "ISA"
                 })
-                st.success("회원가입 완료! 로그인해주세요")
+                if success:
+                    st.success("회원가입 완료! 로그인해주세요")
+                    st.balloons()
     st.stop()
 
 # 5. 로그인 됐으면 메인 앱
@@ -181,7 +199,6 @@ with st.popover("⚙ 설정", use_container_width=True):
     if st.button("설정 저장"):
         st.session_state.groq_key = new_groq_key
         st.session_state.account_type = new_account_type
-        # DB에 저장
         update_user_data(st.session_state.user_email, {
             'portfolio': st.session_state.portfolio,
             'rules': st.session_state.rules,
@@ -193,7 +210,7 @@ with st.popover("⚙ 설정", use_container_width=True):
 
 # 10. 종목 추가
 st.subheader("💰 보유종목 관리")
-col1, col2, col3 = st.columns([3, 1, 1]) # ← 버그 수정됨
+col1, col2, col3 = st.columns([3, 1, 1])
 search_name = col1.selectbox("종목 검색", options=list(st.session_state.krx_list.keys()), index=None, placeholder="삼성전자, TIGER 등 검색")
 add_shares = col2.number_input("수량", min_value=0, step=1)
 if col3.button("추가/수정", use_container_width=True, type="primary"):
@@ -203,7 +220,6 @@ if col3.button("추가/수정", use_container_width=True, type="primary"):
             st.session_state.portfolio[ticker] = add_shares
         elif ticker in st.session_state.portfolio:
             del st.session_state.portfolio[ticker]
-        # DB에 저장
         update_user_data(st.session_state.user_email, {
             'portfolio': st.session_state.portfolio,
             'rules': st.session_state.rules,
@@ -260,7 +276,6 @@ if is_market_open and st.session_state.groq_key:
     new_rules, new_logs = infinite_feedback_v2(st.session_state.groq_key, st.session_state.rules, st.session_state.portfolio)
     if new_rules!= st.session_state.rules:
         st.session_state.rules = new_rules
-        # 룰 바뀌면 DB 저장
         update_user_data(st.session_state.user_email, {
             'portfolio': st.session_state.portfolio,
             'rules': st.session_state.rules,
