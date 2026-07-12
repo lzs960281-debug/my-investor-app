@@ -7,3 +7,4 @@ groq
 beautifulsoup4
 lxml
 pandas
+supabase
