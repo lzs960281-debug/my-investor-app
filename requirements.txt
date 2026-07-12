@@ -1,4 +1,9 @@
 streamlit
+streamlit-autorefresh
 yfinance
-pandas
+plotly
+requests
 groq
+beautifulsoup4
+lxml
+pandas
