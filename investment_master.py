@@ -107,7 +107,7 @@ if not st.session_state.logged_in:
         signup_pw2 = st.text_input("비밀번호 확인", type="password", key="signup_pw2")
         if st.button("회원가입", type="primary", use_container_width=True):
             if signup_pw!= signup_pw2:
-                st.error("비밀번호가 일치하지 않습니다")
+                col1, col2, col3 = st.columns([3,1,1])
             elif signup_email in load_users():
                 st.error("이미 가입된 이메일입니다")
             else:
