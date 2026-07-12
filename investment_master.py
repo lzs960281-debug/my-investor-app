@@ -17,6 +17,11 @@ st.set_page_config(page_title="육과장 AI 풀오토 v11", layout="wide", initi
 # Supabase 연결
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+import streamlit as st
+st.write(f"DEBUG KEY LEN: {len(st.secrets['SUPABASE_KEY'])}")
+st.write(f"DEBUG KEY START: {st.secrets['SUPABASE_KEY'][:20]}")
+st.write(f"DEBUG KEY END: {st.secrets['SUPABASE_KEY'][-20:]}")
+st.stop()  # 일단 여기서 멈춤
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # 비밀번호 해시
