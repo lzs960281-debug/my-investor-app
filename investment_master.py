@@ -295,7 +295,7 @@ def ai_recommendation_engine(groq_key, portfolio_tickers):
 예: AAPL|애플|AI수요폭증 기대감"""
 
         res = client.chat.completions.create(
-            model="llama-3.1-70b-versatile", messages=[{"role": "user", "content": prompt}], max_tokens=300
+            model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], max_tokens=300
         )
         
         recs = []
