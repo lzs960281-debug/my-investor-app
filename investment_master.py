@@ -57,8 +57,8 @@ for t, target in st.session_state.targets.items():
     ideal_val = (total_val + budget) * target
     diff = ideal_val - current_val
     
-    shares_to_buy = int(diff / prices.get(t, 1)) if diff > 0 else 0
-    
+    price = prices.get(t, 0)
+shares_to_buy = int(diff / price) if (diff > 0 and price > 0) else 0
     col1, col2 = st.columns([2, 1])
     col1.write(f"**{t}** (타겟 {target*100}%)")
     col2.write(f"→ **{shares_to_buy}주 매수 추천**")
