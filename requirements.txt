@@ -2,8 +2,4 @@ Plaintext
 streamlit
 yfinance
 pandas
-plotly
-streamlit-autorefresh
-requests
-beautifulsoup4
 groq
