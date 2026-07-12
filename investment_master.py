@@ -59,9 +59,9 @@ def update_user_data(email, data):
 # 2. 글로벌 CSS
 st.markdown("""
 <style>
- .main.block-container {padding-top: 1rem; padding-bottom: 0rem;}
- .stMetric {background-color: #0E1117; padding: 15px; border-radius: 10px; border: 1px solid #262730;}
- .stAlert {border-radius: 10px;}
+.main.block-container {padding-top: 1rem; padding-bottom: 0rem;}
+.stMetric {background-color: #0E1117; padding: 15px; border-radius: 10px; border: 1px solid #262730;}
+.stAlert {border-radius: 10px;}
     h1 {text-align: center; color: #FAFAFA;}
     h3 {color: #FAFAFA; border-bottom: 2px solid #FF4B4B; padding-bottom: 5px;}
 </style>
@@ -107,7 +107,7 @@ if not st.session_state.logged_in:
         signup_pw2 = st.text_input("비밀번호 확인", type="password", key="signup_pw2")
         if st.button("회원가입", type="primary", use_container_width=True):
             if signup_pw!= signup_pw2:
-                col1, col2, col3 = st.columns([3,1,1])
+                st.error("비밀번호가 일치하지 않습니다") # ← 버그 수정됨
             elif signup_email in load_users():
                 st.error("이미 가입된 이메일입니다")
             else:
@@ -122,9 +122,10 @@ if not st.session_state.logged_in:
 
 # 5. 로그인 됐으면 메인 앱
 st.markdown("<h1>🤖 육과장 AI 풀오토 v10</h1>", unsafe_allow_html=True)
-st.caption(f"<p style='text-align: right; color: #AAA;'>👤 {st.session_state.user_email} | <a href='#' onclick='window.location.reload()'>로그아웃</a></p>", unsafe_allow_html=True)
 
-if st.button("로그아웃"):
+col_user, col_logout = st.columns([5,1])
+col_user.caption(f"👤 {st.session_state.user_email}")
+if col_logout.button("로그아웃", use_container_width=True):
     st.session_state.logged_in = False
     st.session_state.user_email = None
     st.rerun()
@@ -192,7 +193,7 @@ with st.popover("⚙ 설정", use_container_width=True):
 
 # 10. 종목 추가
 st.subheader("💰 보유종목 관리")
-col1, col2, col3 = st.columns([3, 1, 1])
+col1, col2, col3 = st.columns([3, 1, 1]) # ← 버그 수정됨
 search_name = col1.selectbox("종목 검색", options=list(st.session_state.krx_list.keys()), index=None, placeholder="삼성전자, TIGER 등 검색")
 add_shares = col2.number_input("수량", min_value=0, step=1)
 if col3.button("추가/수정", use_container_width=True, type="primary"):
@@ -280,7 +281,7 @@ def calc_portfolio(portfolio_dict, rules, acc_type):
             t = yf.Ticker(ticker)
             hist = t.history(period="2d")
             price = hist['Close'].iloc[-1]
-            prev = hist['Close'].iloc[-2]
+            prev = hist['Close'].iloc[-2] if len(hist) > 1 else price
             value = shares * price
             holdings[ticker] = {
                 'name': ticker, 'shares': shares, 'price': price, 'value': value,
@@ -327,16 +328,25 @@ holdings, total, issues, orders, current_rules = calc_portfolio(
 
 # 13. 대시보드 UI
 if total > 0:
-    prev_total = sum(st.session_state.portfolio[t] * yf.Ticker(t).history(period="2d")['Close'].iloc[-2]
-                     for t in st.session_state.portfolio if st.session_state.portfolio[t] > 0)
-    today_change = total - prev_total
+    try:
+        prev_total = sum(st.session_state.portfolio[t] * yf.Ticker(t).history(period="2d")['Close'].iloc[-2]
+                         for t in st.session_state.portfolio if st.session_state.portfolio[t] > 0)
+        today_change = total - prev_total
+    except:
+        today_change = 0
+        prev_total = total
+
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("💰 총자산", f"{total:,.0f}원", f"{today_change:+,.0f}원")
     col2.metric("📈 오늘수익률", f"{today_change/prev_total*100:+.2f}%" if prev_total > 0 else "0%")
-    vix = yf.Ticker('^VIX').history(period='1d')['Close'].iloc[-1]
+    try:
+        vix = yf.Ticker('^VIX').history(period='1d')['Close'].iloc[-1]
+    except:
+        vix = 0
     col3.metric("😱 VIX", f"{vix:.1f}", "위험" if vix > 30 else "안정")
     monthly_div = sum(h['div'] * h['shares'] / 12 for h in holdings.values())
     col4.metric("💵 월배당", f"{monthly_div:,.0f}원")
+
     st.markdown("### 🚨 AI 실시간 진단")
     for issue in issues:
         if "✅" in issue: st.success(issue)
