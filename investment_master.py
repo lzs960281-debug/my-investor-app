@@ -17,10 +17,20 @@ st.set_page_config(page_title="육과장 AI 풀오토 v11", layout="wide", initi
 # Supabase 연결
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-st.write(f"DEBUG KEY LEN: {len(st.secrets['SUPABASE_KEY'])}")
-st.write(f"DEBUG KEY START: {st.secrets['SUPABASE_KEY'][:20]}")
-st.write(f"DEBUG KEY END: {st.secrets['SUPABASE_KEY'][-20:]}")
-st.stop()supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# ========== 디버그 - 이 값 보고 나한테 보내줘 ==========
+st.title("Supabase 디버깅")
+st.write(f"URL: {SUPABASE_URL}")
+st.write(f"KEY 길이: {len(SUPABASE_KEY)}")
+st.write(f"KEY 앞 30자: {SUPABASE_KEY[:30]}")
+st.write(f"KEY 뒤 30자: {SUPABASE_KEY[-30:]}")
+st.write(f"URL 끝에 / 있음?: {SUPABASE_URL.endswith('/')}")
+st.write(f"KEY에 줄바꿈 있음?: {'\\n' in SUPABASE_KEY or '\\r' in SUPABASE_KEY}")
+st.write(f"KEY에 공백 있음?: {' ' in SUPABASE_KEY or SUPABASE_KEY.startswith(' ') or SUPABASE_KEY.endswith(' ')}")
+st.stop()
+# ========== 디버그 끝 - 확인 후 이 블록 7줄 삭제하고 푸시 ==========
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # 비밀번호 해시
 def hash_password(password):
@@ -182,7 +192,6 @@ def get_krx_list():
         etf_df['종목코드'] = etf_df['종목코드'].astype(str).str.zfill(6) + '.KS'
         full_df = pd.concat([df, etf_df]).drop_duplicates()
         krx_dict = full_df.set_index('회사명')['종목코드'].to_dict()
-        # 미국 주요 종목 추가
         us_stocks = {
             '애플': 'AAPL', '마이크로소프트': 'MSFT', '엔비디아': 'NVDA', '테슬라': 'TSLA',
             'S&P500 ETF': 'SPY', '나스닥100 ETF': 'QQQ', '미국배당다우': 'SCHD'
@@ -258,7 +267,6 @@ def ai_recommendation_engine(groq_key, portfolio_tickers):
     if not groq_key: return []
     try:
         client = Groq(api_key=groq_key)
-        # 뉴스 3곳 크로스체크
         sources = []
         urls = [
             "https://finance.naver.com/news/mainnews.naver",
